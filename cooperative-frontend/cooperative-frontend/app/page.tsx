@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
+import Image from 'next/image';
 import { useAppSelector } from '@/lib/store/hooks';
 import { ROUTES } from '@/constants/app';
 
@@ -12,11 +13,36 @@ export default function HomePage() {
   const [showModal, setShowModal] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [activeSection, setActiveSection] = useState('');
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [visibleElements, setVisibleElements] = useState<Set<string>>(new Set());
   const router = useRouter();
   const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
 
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  // Handle scroll effects
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20);
+
+      // Intersection Observer for animations
+      const elements = document.querySelectorAll('[data-animate]');
+      elements.forEach((el) => {
+        const rect = el.getBoundingClientRect();
+        const isVisible = rect.top < window.innerHeight && rect.bottom > 0;
+        
+        if (isVisible) {
+          const animateClass = el.getAttribute('data-animate');
+          el.classList.add(animateClass || 'animate-scroll-in-bottom');
+          setVisibleElements(prev => new Set(prev).add(el.id));
+        }
+      });
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   const handleSignIn = () => {
@@ -37,8 +63,8 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Sticky Header */}
-      <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm transition-all">
+      {/* Sticky Header with Blur and Notch */}
+      <header className={`sticky top-0 z-50 border-b transition-all duration-300 ${isScrolled ? 'nav-blur shadow-lg border-gray-200' : 'bg-white border-gray-100'}`}>
         <nav className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center gap-3">
@@ -149,24 +175,38 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Right Visual */}
-            <div className="relative h-96 md:h-full min-h-96 flex items-center justify-center">
+            {/* Right Visual - Analytics Images with Notch */}
+            <div className="relative h-96 md:h-full min-h-96 flex items-center justify-center" data-animate="animate-slide-in-right" id="hero-analytics">
               <div className="relative w-full h-full">
-                <div className="absolute inset-0 rounded-3xl" style={{
-                  backgroundColor: '#0A2E5C',
-                  opacity: 0.1,
-                  transform: 'rotate(6deg)',
-                }} />
-                <div className="absolute inset-8 rounded-3xl bg-white border-2" style={{ borderColor: '#0A2E5C' }}>
-                  <div className="h-full flex flex-col items-center justify-center p-8">
-                    <div className="w-24 h-24 rounded-full mb-6" style={{ backgroundColor: '#009A44', opacity: 0.1 }} />
-                    <div className="text-4xl font-bold text-gray-900 mb-2" style={{ fontFamily: 'Poppins' }}>ETB 5M+</div>
-                    <div className="text-gray-600 text-center">Total Savings Managed</div>
-                    <div className="mt-8 w-full">
-                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div className="h-full w-3/4 rounded-full" style={{ backgroundColor: '#009A44' }} />
-                      </div>
-                    </div>
+                {/* Main Image Container with Notch */}
+                <div className="relative rounded-3xl overflow-hidden shadow-2xl" style={{
+                  borderRadius: '24px',
+                  clipPath: 'polygon(0 20px, 50% 0, 100% 20px, 100% 100%, 0 100%)',
+                  boxShadow: '0 20px 60px rgba(10, 46, 92, 0.2)'
+                }}>
+                  <Image
+                    src="/images/accounting-analytics.jpg"
+                    alt="Financial Analytics Dashboard"
+                    width={400}
+                    height={500}
+                    className="w-full h-full object-cover"
+                    priority
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-blue-900/20 to-transparent" />
+                </div>
+
+                {/* Floating Analytics Card with Notch Bottom */}
+                <div className="absolute bottom-0 right-0 bg-white rounded-2xl p-6 shadow-xl" style={{
+                  clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 16px), 50% 100%, 0 calc(100% - 16px))',
+                  backgroundColor: '#FFFFFF',
+                  border: '2px solid #0A2E5C',
+                  width: '220px',
+                  transform: 'translateY(40px) translateX(20px)',
+                }}>
+                  <div className="text-3xl font-bold text-gray-900 mb-1" style={{ fontFamily: 'Poppins' }}>ETB 5M+</div>
+                  <div className="text-xs text-gray-600 mb-3">Total Savings</div>
+                  <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="h-full w-3/4 rounded-full" style={{ backgroundColor: '#009A44' }} />
                   </div>
                 </div>
               </div>
@@ -178,7 +218,7 @@ export default function HomePage() {
       {/* About Section */}
       <section id="about" className="py-20 px-6 bg-white">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
+          <div className="text-center mb-16" data-animate="animate-scroll-in-top" id="about-title">
             <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4" style={{ fontFamily: 'Poppins' }}>
               Who We Are
             </h2>
@@ -272,7 +312,12 @@ export default function HomePage() {
                 color: '#DA291C',
               },
             ].map(({ title, description, icon, color }, idx) => (
-              <div key={idx} className="bg-white rounded-2xl border border-gray-200 p-8 hover:shadow-lg transition-shadow group">
+              <div key={idx} className="bg-white border p-8 hover:shadow-lg transition-shadow group" style={{
+                clipPath: 'polygon(0 12px, 50% 0, 100% 12px, 100% 100%, 0 100%)',
+                borderColor: color,
+                borderWidth: '2px',
+                borderRadius: '20px'
+              }} data-animate="animate-scroll-in-bottom" id={`service-${idx}`}>
                 <div className="text-5xl mb-6">{icon}</div>
                 <h3 className="text-2xl font-bold text-gray-900 mb-4" style={{ fontFamily: 'Poppins' }}>
                   {title}
@@ -502,6 +547,107 @@ export default function HomePage() {
                   Send Message
                 </button>
               </form>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Map Viewer Section */}
+      <section className="py-20 px-6" style={{ backgroundColor: '#F8F9FA' }}>
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16" data-animate="animate-scroll-in-top" id="map-title">
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4" style={{ fontFamily: 'Poppins' }}>
+              Find Us Here
+            </h2>
+            <div className="flex justify-center mb-6">
+              <div style={{
+                height: '4px',
+                width: '60px',
+                backgroundColor: '#0A2E5C',
+                borderRadius: '2px',
+              }} />
+            </div>
+            <p className="text-lg text-gray-700 max-w-2xl mx-auto">
+              Located at the heart of Woldia University, we're easily accessible to all members. Visit us during office hours.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-8 items-center">
+            {/* Map Container with Notch */}
+            <div className="relative overflow-hidden" style={{
+              clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 20px), 50% 100%, 0 calc(100% - 20px))',
+              boxShadow: '0 15px 50px rgba(10, 46, 92, 0.15)',
+              borderRadius: '24px',
+              height: '400px'
+            }} data-animate="animate-slide-in-left" id="map-container">
+              <iframe
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3921.8597653242516!2d39.61!3d11.86!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x164aad2da50e2621%3A0x1!2sWoldia%20University!5e0!3m2!1sen!2set!4v1234567890"
+                width="100%"
+                height="100%"
+                style={{ border: 0 }}
+                allowFullScreen={true}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+            </div>
+
+            {/* Location Details with Notch Top */}
+            <div className="space-y-6" data-animate="animate-slide-in-right" id="location-details">
+              <div className="bg-white rounded-2xl p-8" style={{
+                clipPath: 'polygon(0 16px, 50% 0, 100% 16px, 100% 100%, 0 100%)',
+                border: '2px solid #0A2E5C',
+                boxShadow: '0 10px 30px rgba(10, 46, 92, 0.1)'
+              }}>
+                <div className="flex items-start gap-4 mb-6">
+                  <div className="text-4xl">📍</div>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-2" style={{ fontFamily: 'Poppins' }}>Main Office</h3>
+                    <p className="text-gray-700">Woldia, Ethiopia<br />Woldia University Compound<br />Zone 3, North Wollo</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-white rounded-2xl p-6" style={{
+                  clipPath: 'polygon(0 8px, 50% 0, 100% 8px, 100% 100%, 0 100%)',
+                  border: '2px solid #009A44',
+                  boxShadow: '0 5px 15px rgba(0, 154, 68, 0.1)'
+                }}>
+                  <div className="text-3xl mb-2">🕒</div>
+                  <p className="font-semibold text-gray-900 text-sm mb-1">Hours</p>
+                  <p className="text-xs text-gray-600">Mon - Fri: 8AM-5PM</p>
+                </div>
+
+                <div className="bg-white rounded-2xl p-6" style={{
+                  clipPath: 'polygon(0 8px, 50% 0, 100% 8px, 100% 100%, 0 100%)',
+                  border: '2px solid #FEDD00',
+                  boxShadow: '0 5px 15px rgba(254, 221, 0, 0.1)'
+                }}>
+                  <div className="text-3xl mb-2">📞</div>
+                  <p className="font-semibold text-gray-900 text-sm mb-1">Phone</p>
+                  <p className="text-xs text-gray-600">+251 (0) XXX XXX</p>
+                </div>
+
+                <div className="bg-white rounded-2xl p-6" style={{
+                  clipPath: 'polygon(0 8px, 50% 0, 100% 8px, 100% 100%, 0 100%)',
+                  border: '2px solid #DA291C',
+                  boxShadow: '0 5px 15px rgba(218, 41, 28, 0.1)'
+                }}>
+                  <div className="text-3xl mb-2">✉️</div>
+                  <p className="font-semibold text-gray-900 text-sm mb-1">Email</p>
+                  <p className="text-xs text-gray-600">info@maedcoop.et</p>
+                </div>
+
+                <div className="bg-white rounded-2xl p-6" style={{
+                  clipPath: 'polygon(0 8px, 50% 0, 100% 8px, 100% 100%, 0 100%)',
+                  border: '2px solid #0A2E5C',
+                  boxShadow: '0 5px 15px rgba(10, 46, 92, 0.1)'
+                }}>
+                  <div className="text-3xl mb-2">👥</div>
+                  <p className="font-semibold text-gray-900 text-sm mb-1">Team</p>
+                  <p className="text-xs text-gray-600">5+ Dedicated Staff</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
