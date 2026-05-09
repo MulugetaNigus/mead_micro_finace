@@ -613,7 +613,7 @@ export default function HomePage() {
       </footer>
 
       {/* Auth Modal */}
-      {mounted && <AuthModal isOpen={showModal} onClose={() => setShowModal(false)} />}
+      {mounted && showModal && <AuthModal onClose={() => setShowModal(false)} />}
     </div>
   );
 }
