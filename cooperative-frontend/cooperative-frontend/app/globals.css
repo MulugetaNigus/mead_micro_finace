@@ -148,24 +148,8 @@ html {
   opacity: 0;
 }
 
-/* Notch style designs */
-.notch-top {
-  position: relative;
-  clip-path: polygon(0 12px, 50% 0, 100% 12px, 100% 100%, 0 100%);
-}
-
-.notch-bottom {
-  position: relative;
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 12px), 50% 100%, 0 calc(100% - 12px));
-}
-
-.notch-both {
-  position: relative;
-  clip-path: polygon(0 12px, 50% 0, 100% 12px, 100% calc(100% - 12px), 50% 100%, 0 calc(100% - 12px));
-}
-
 /* Nav blur on scroll */
 .nav-blur {
-  backdrop-filter: blur(8px);
-  background-color: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  background-color: rgba(255, 255, 255, 0.85);
 }
