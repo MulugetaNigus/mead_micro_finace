@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import Image from 'next/image';
 import { useAppSelector } from '@/lib/store/hooks';
 import { ROUTES } from '@/constants/app';
+import AnimatedLineChart from '@/components/AnimatedLineChart';
 
 const AuthModal = dynamic(() => import('@/components/auth/AuthModal'), { ssr: false });
 
@@ -158,37 +158,28 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Right Analytics */}
+            {/* Right Analytics - Animated Chart */}
             <div className="relative h-96 md:h-full min-h-96 flex items-center justify-center" data-animate="animate-slide-in-right" id="hero-analytics">
               <div className="relative w-full h-full">
-                {/* Main Image Container */}
-                <div className="relative rounded-2xl overflow-hidden shadow-2xl" style={{
-                  boxShadow: '0 25px 60px rgba(10, 46, 92, 0.15)',
-                  borderRadius: '16px'
-                }}>
-                  <Image
-                    src="/images/accounting-analytics.jpg"
-                    alt="Financial Analytics Dashboard"
-                    width={400}
-                    height={500}
-                    className="w-full h-full object-cover"
-                    priority
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-blue-900/10 to-transparent" />
-                </div>
+                <AnimatedLineChart />
 
                 {/* Floating Stats Card */}
-                <div className="absolute bottom-0 right-0 bg-white rounded-xl p-6 shadow-xl" style={{
+                <div className="absolute bottom-6 left-6 bg-white rounded-xl p-6 shadow-xl" style={{
                   backgroundColor: '#FFFFFF',
                   border: '1px solid #E5E7EB',
-                  width: '220px',
-                  transform: 'translateY(40px) translateX(20px)',
+                  width: '240px',
                   boxShadow: '0 20px 40px rgba(10, 46, 92, 0.12)'
                 }}>
-                  <div className="text-sm text-gray-600 mb-2">Total Assets</div>
-                  <div className="text-3xl font-bold text-gray-900 mb-1" style={{ fontFamily: 'Poppins' }}>ETB 5M+</div>
-                  <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden mt-3">
-                    <div className="h-full w-3/4 rounded-full" style={{ backgroundColor: '#0A2E5C' }} />
+                  <div className="text-sm text-gray-600 mb-2">Total Member Savings</div>
+                  <div className="text-3xl font-bold text-gray-900 mb-3" style={{ fontFamily: 'Poppins' }}>ETB 5M+</div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-gray-600">Growth</span>
+                      <span className="font-semibold text-gray-900">+18%</span>
+                    </div>
+                    <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="h-full w-3/4 rounded-full" style={{ backgroundColor: '#0A2E5C' }} />
+                    </div>
                   </div>
                 </div>
               </div>
