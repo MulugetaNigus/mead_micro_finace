@@ -150,27 +150,28 @@ export function Sidebar() {
   const visibleNavItems = mounted ? navItems.filter((item) => hasAnyRole(item.roles)) : navItems;
 
   return (
-    <aside className="w-52 relative flex flex-col h-full flex-shrink-0">
-      {/* Background */}
-      <div className="absolute inset-0 bg-white border-r border-gray-200"></div>
+    <aside className="w-64 relative flex flex-col h-full flex-shrink-0">
+      {/* Background with glassmorphism */}
+      <div className="absolute inset-0 bg-white/90 backdrop-blur-xl border-r border-gray-200/60"></div>
       
       {/* Content */}
       <div className="relative z-10 flex flex-col h-full">
         {/* Logo */}
-        <div className="h-12 flex items-center px-4 border-b border-gray-200">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
-              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
+        <div className="h-16 flex items-center px-6 border-b border-gray-200/60">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform hover:scale-105" style={{ backgroundColor: '#0A2E5C' }}>
+              <span className="text-white font-bold text-lg" style={{ fontFamily: 'Poppins' }}>M</span>
             </div>
-            <h1 className="text-sm font-bold text-gray-900">Coop System</h1>
+            <div className="flex flex-col">
+              <h1 className="text-base font-bold text-gray-900" style={{ fontFamily: 'Poppins' }}>Ma'ed</h1>
+              <span className="text-xs text-gray-500">Dashboard</span>
+            </div>
           </div>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-2 px-2">
-          <ul className="space-y-0.5">
+        <nav className="flex-1 overflow-y-auto py-6 px-4">
+          <ul className="space-y-2">
             {visibleNavItems.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
               
@@ -178,16 +179,19 @@ export function Sidebar() {
                 <li key={item.href}>
                   <Link
                     href={item.href}
-                    className={`flex items-center gap-2.5 px-3 py-2 text-xs rounded-lg transition-colors ${
+                    className={`group flex items-center gap-3 px-4 py-3 text-sm rounded-xl transition-all duration-300 ${
                       isActive
-                        ? 'bg-blue-600 text-white'
-                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                        ? 'bg-gradient-to-r from-[#0A2E5C] to-[#1A4A8A] text-white shadow-lg shadow-[#0A2E5C]/20'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 hover:shadow-md'
                     }`}
                   >
-                    <div className={`flex-shrink-0 ${isActive ? 'text-white' : 'text-gray-500'}`}>
+                    <div className={`flex-shrink-0 transition-colors ${isActive ? 'text-white' : 'text-gray-500 group-hover:text-[#0A2E5C]'}`}>
                       {item.icon}
                     </div>
-                    <span className="font-medium truncate">{item.label}</span>
+                    <span className="font-medium truncate" style={{ fontFamily: 'Poppins' }}>{item.label}</span>
+                    {isActive && (
+                      <div className="ml-auto w-2 h-2 rounded-full bg-white/60 animate-pulse" />
+                    )}
                   </Link>
                 </li>
               );
@@ -196,10 +200,10 @@ export function Sidebar() {
         </nav>
 
         {/* Status */}
-        <div className="px-3 py-2 border-t border-gray-200">
-          <div className="flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
-            <p className="text-xs text-gray-400">Online</p>
+        <div className="px-4 py-4 border-t border-gray-200/60">
+          <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-green-50/50 border border-green-200/50">
+            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+            <p className="text-xs font-medium text-green-700">System Online</p>
           </div>
         </div>
       </div>
