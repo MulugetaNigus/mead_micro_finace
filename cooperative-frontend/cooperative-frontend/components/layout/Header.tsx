@@ -31,10 +31,10 @@ export function Header() {
         {/* Left: Greeting */}
         <div>
           <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Poppins' }}>
-            {mounted && getTimeGreeting()}, {user?.fullName?.split(' ')[0] || 'User'}
+            {mounted ? `${getTimeGreeting()}, ${user?.fullName?.split(' ')[0] || 'User'}` : ''}
           </h2>
           <p className="text-sm text-gray-500">
-            {mounted && currentTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            {mounted ? currentTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : ''}
           </p>
         </div>
 

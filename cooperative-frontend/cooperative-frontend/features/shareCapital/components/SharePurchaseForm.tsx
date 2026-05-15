@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { CircularProgress } from '@mui/material';
 import { usePurchaseSharesMutation } from '@/features/shareCapital/shareCapitalApi';
 import { MemberSearchInput } from '@/components/common/MemberSearchInput';
+import { toastSuccess, toastError } from '@/components/common/Toast';
 
 const schema = z.object({
   memberId: z.string().min(1, 'Member is required'),
@@ -21,8 +21,7 @@ interface Props {
 }
 
 export function SharePurchaseForm({ memberId, onSuccess }: Props) {
-  const [success, setSuccess] = useState(false);
-  const [purchaseShares, { isLoading, error }] = usePurchaseSharesMutation();
+  const [purchaseShares, { isLoading }] = usePurchaseSharesMutation();
 
   const { register, handleSubmit, control, formState: { errors }, reset } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -32,11 +31,12 @@ export function SharePurchaseForm({ memberId, onSuccess }: Props) {
   const onSubmit = async (data: FormData) => {
     try {
       await purchaseShares(data).unwrap();
-      setSuccess(true);
       reset({ memberId: memberId ?? '' });
+      toastSuccess('Shares purchased');
       onSuccess?.();
-      setTimeout(() => setSuccess(false), 4000);
-    } catch {}
+    } catch (err: any) {
+      toastError(err?.data?.message ?? 'Failed to purchase shares');
+    }
   };
 
   const inputCls = 'w-full px-4 py-3 rounded-lg border border-gray-200 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all';
@@ -59,23 +59,6 @@ export function SharePurchaseForm({ memberId, onSuccess }: Props) {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="px-6 py-5 space-y-5">
-        {success && (
-          <div className="flex items-start gap-2 p-3 rounded-lg bg-green-50 border border-green-200">
-            <svg className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p className="text-sm text-green-700">Shares purchased successfully.</p>
-          </div>
-        )}
-        {!!error && (
-          <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 border border-red-200">
-            <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p className="text-sm text-red-700">{String((error as any)?.data?.message ?? 'Failed to purchase shares')}</p>
-          </div>
-        )}
-
         {!memberId && (
           <Controller
             name="memberId"

@@ -1,6 +1,6 @@
 'use client';
 
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useState } from 'react';
@@ -9,8 +9,9 @@ import { useCreateMemberMutation } from '@/features/members/membersApi';
 import { useGetCurrentConfigQuery } from '@/features/config/configApi';
 import { useGetActiveCategoriesQuery } from '@/features/memberTypeCategories/memberTypeCategoriesApi';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
-import { SuccessSnackbar } from '@/components/common/SuccessSnackbar';
 import { ErrorAlert } from '@/components/common/ErrorAlert';
+import { CurrencyInput } from '@/components/common/CurrencyInput';
+import { toastSuccess, toastError } from '@/components/common/Toast';
 
 const inputCls = 'w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500';
 const labelCls = 'block text-xs font-semibold text-gray-700 mb-1';
@@ -31,7 +32,6 @@ interface Props { onSuccess?: () => void; }
 export function MemberForm({ onSuccess }: Props) {
   const router = useRouter();
   const [createMember, { isLoading, error }] = useCreateMemberMutation();
-  const [showSuccess, setShowSuccess] = useState(false);
   const { data: config } = useGetCurrentConfigQuery();
   const { data: memberTypeCategories = [] } = useGetActiveCategoriesQuery();
 
@@ -40,9 +40,17 @@ export function MemberForm({ onSuccess }: Props) {
 
   const schema = z.object({
     memberType: z.string().min(1, 'Member type is required'),
-    firstName: z.string().min(2, 'Required'),
-    lastName: z.string().min(2, 'Required'),
-    dateOfBirth: z.string().min(1, 'Required').refine((val) => {
+    firstName: z
+      .string()
+      .min(2, 'First name must be at least 2 characters')
+      .max(50, 'First name must be at most 50 characters')
+      .regex(/^[A-Za-z\s'-]+$/, 'First name must contain letters only'),
+    lastName: z
+      .string()
+      .min(2, 'Last name must be at least 2 characters')
+      .max(50, 'Last name must be at most 50 characters')
+      .regex(/^[A-Za-z\s'-]+$/, 'Last name must contain letters only'),
+    dateOfBirth: z.string().min(1, 'Date of birth is required').refine((val) => {
       if (!val) return false;
       const dob = new Date(val);
       const today = new Date();
@@ -50,24 +58,41 @@ export function MemberForm({ onSuccess }: Props) {
         (today < new Date(today.getFullYear(), dob.getMonth(), dob.getDate()) ? 1 : 0);
       return age >= 18;
     }, 'Member must be at least 18 years old'),
-    nationalId: z.string().min(1, 'Required'),
-    phoneNumber: z.string().min(1, 'Required'),
-    email: z.string().email('Invalid email').optional().or(z.literal('')),
-    address: z.string().optional(),
-    employmentStatus: z.string().min(1, 'Required'),
+    nationalId: z
+      .string()
+      .min(3, 'National ID must be at least 3 characters')
+      .max(30, 'National ID must be at most 30 characters')
+      .regex(/^[A-Za-z0-9/-]+$/, 'National ID must contain only letters, numbers, hyphens, or slashes'),
+    phoneNumber: z
+      .string()
+      .min(1, 'Phone number is required')
+      .regex(/^\+?[0-9]{7,15}$/, 'Enter a valid phone number (e.g. +251912345678)'),
+    email: z.string().email('Invalid email address').optional().or(z.literal('')),
+    address: z
+      .string()
+      .max(200, 'Address must be at most 200 characters')
+      .optional(),
+    employmentStatus: z.string().min(1, 'Employment status is required'),
     committedDeduction: z.number()
-      .positive('Required')
-      .min(minDeduction, `Minimum deduction is ETB ${minDeduction}`),
-    shareCount: z.number().int()
+      .positive('Committed deduction must be a positive number')
+      .min(500, 'Minimum deduction is ETB 500')
+      .min(minDeduction, `Minimum deduction is ETB ${Math.max(500, minDeduction)}`),
+    shareCount: z.number().int('Share count must be a whole number')
       .min(minShares, `Minimum ${minShares} shares required`)
       .optional(),
-    externalCooperativeName: z.string().optional(),
-    externalCooperativeMemberId: z.string().optional(),
+    externalCooperativeName: z
+      .string()
+      .max(100, 'Cooperative name must be at most 100 characters')
+      .optional(),
+    externalCooperativeMemberId: z
+      .string()
+      .max(50, 'Cooperative member ID must be at most 50 characters')
+      .optional(),
   });
 
   type FormData = z.infer<typeof schema>;
 
-  const { register, handleSubmit, watch, formState: { errors }, reset } = useForm<FormData>({
+  const { register, handleSubmit, watch, control, formState: { errors }, reset } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { memberType: 'REGULAR', shareCount: minShares },
   });
@@ -80,22 +105,35 @@ export function MemberForm({ onSuccess }: Props) {
         ...data,
         email: data.email || undefined,
       }).unwrap();
-      setShowSuccess(true);
+      toastSuccess('Member created successfully');
       reset({ memberType: 'REGULAR', shareCount: minShares });
       setTimeout(() => {
-        setShowSuccess(false);
         onSuccess ? onSuccess() : router.push(`/dashboard/members/${result.id}`);
-      }, 2000);
-    } catch (err) {
-      console.error('Failed to create member:', err);
+      }, 500);
+    } catch (err: any) {
+      console.error('Failed to create member — status:', err?.status, 'data:', err?.data);
+      toastError(err?.data?.message ?? err?.data?.error ?? 'Failed to create member');
     }
   };
 
   const errorMessage = (() => {
     if (!error) return null;
     const e = error as any;
+    // Spring Boot validation error: { errors: { fieldName: "message", ... } }
+    if (e?.data?.errors && typeof e.data.errors === 'object') {
+      return Object.values(e.data.errors).join(', ');
+    }
+    // Spring Boot business error: { message: "..." }
     if (e?.data?.message) return e.data.message;
-    if (e?.data?.errors) return Object.values(e.data.errors).join(', ');
+    // Spring Boot default error body: { error: "...", path: "..." }
+    if (e?.data?.error) return e.data.error;
+    // Plain string body
+    if (typeof e?.data === 'string' && e.data.length > 0) return e.data;
+    // HTTP status fallback
+    if (e?.status === 403) return 'You do not have permission to create members.';
+    if (e?.status === 401) return 'Your session has expired. Please log in again.';
+    if (e?.status === 409) return 'A member with this National ID already exists.';
+    if (e?.status === 400) return 'Invalid data submitted. Please check all fields.';
     return 'Failed to create member. Please check your input and try again.';
   })();
 
@@ -107,7 +145,7 @@ export function MemberForm({ onSuccess }: Props) {
       {config && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 text-xs text-blue-700 flex gap-4 flex-wrap">
           <span>Min. shares: <strong>{minShares}</strong></span>
-          <span>Min. deduction: <strong>ETB {minDeduction}</strong></span>
+          <span>Min. deduction: <strong>ETB {Math.max(500, minDeduction)}</strong></span>
           <span>Share price: <strong>ETB {config.sharePricePerShare}</strong></span>
         </div>
       )}
@@ -120,9 +158,15 @@ export function MemberForm({ onSuccess }: Props) {
             <Field label="Member Type *" error={errors.memberType?.message}>
               <select {...register('memberType')} className={inputCls}>
                 <option value="">Select member type...</option>
-                {memberTypeCategories.map((cat) => (
-                  <option key={cat.id} value={cat.name}>{cat.name}</option>
-                ))}
+                {/* Static default options always shown */}
+                <option value="REGULAR">Regular</option>
+                <option value="EXTERNAL_COOPERATIVE">Other Cooperative</option>
+                {/* Dynamic options from API, skip any that duplicate the static ones */}
+                {memberTypeCategories
+                  .filter((cat) => cat.name !== 'REGULAR' && cat.name !== 'EXTERNAL_COOPERATIVE')
+                  .map((cat) => (
+                    <option key={cat.id} value={cat.name}>{cat.name}</option>
+                  ))}
               </select>
             </Field>
             <Field label="First Name *" error={errors.firstName?.message}>
@@ -132,7 +176,12 @@ export function MemberForm({ onSuccess }: Props) {
               <input {...register('lastName')} className={inputCls} />
             </Field>
             <Field label="Date of Birth *" error={errors.dateOfBirth?.message}>
-              <input type="date" {...register('dateOfBirth')} className={inputCls} />
+              <input
+                type="date"
+                {...register('dateOfBirth')}
+                max={new Date().toISOString().split('T')[0]}
+                className={inputCls}
+              />
             </Field>
             <Field label="National ID *" error={errors.nationalId?.message}>
               <input {...register('nationalId')} className={inputCls} />
@@ -166,10 +215,19 @@ export function MemberForm({ onSuccess }: Props) {
                 <option value="PART_TIME">Part Time</option>
               </select>
             </Field>
-            <Field label={`Committed Monthly Deduction (ETB, min. ${minDeduction}) *`} error={errors.committedDeduction?.message}>
-              <input type="number" step="0.01"
-                {...register('committedDeduction', { valueAsNumber: true, setValueAs: v => v === '' || isNaN(v) ? undefined : Number(v) })}
-                className={inputCls} />
+            <Field label={`Committed Monthly Deduction (ETB, min. ${Math.max(500, minDeduction)}) *`} error={errors.committedDeduction?.message}>
+              <Controller
+                name="committedDeduction"
+                control={control}
+                render={({ field }) => (
+                  <CurrencyInput
+                    value={field.value}
+                    onChange={(v) => field.onChange(v ?? 0)}
+                    className={inputCls}
+                    placeholder={`min. ${Math.max(500, minDeduction).toLocaleString()}`}
+                  />
+                )}
+              />
             </Field>
             {memberType === 'REGULAR' && (
               <Field label={`Initial Share Count (min. ${minShares})`} error={errors.shareCount?.message}>
@@ -209,10 +267,6 @@ export function MemberForm({ onSuccess }: Props) {
           </button>
         </div>
       </form>
-
-      {showSuccess && (
-        <SuccessSnackbar message="Member created successfully!" onClose={() => setShowSuccess(false)} />
-      )}
     </div>
   );
 }

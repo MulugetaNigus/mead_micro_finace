@@ -1,11 +1,13 @@
 'use client';
 
 import React from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { CircularProgress } from '@mui/material';
 import { useRecordRepaymentMutation } from '../loansApi';
+import { CurrencyInput } from '@/components/common/CurrencyInput';
+import { toastSuccess, toastError, toastWarning } from '@/components/common/Toast';
 
 const schema = z.object({
   loanId: z.string().min(1, 'Loan ID is required'),
@@ -23,24 +25,22 @@ interface Props {
 
 export function LoanRepaymentForm({ loanId, suggestedAmount, outstandingBalance, onSuccess }: Props) {
   const [recordRepayment, { isLoading, error }] = useRecordRepaymentMutation();
-  const [warning, setWarning] = React.useState<string | null>(null);
-  const [success, setSuccess] = React.useState(false);
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { loanId: loanId ?? '', amount: suggestedAmount ?? ('' as any) },
   });
 
   const onSubmit = async (formData: FormData) => {
-    setWarning(null);
-    setSuccess(false);
     try {
       const result = await recordRepayment({ loanId: formData.loanId, amount: formData.amount }).unwrap() as any;
-      setSuccess(true);
-      if (result?.warning) setWarning(result.warning);
+      toastSuccess('Repayment recorded successfully');
+      if (result?.warning) toastWarning(result.warning);
       reset({ loanId: loanId ?? '', amount: suggestedAmount ?? ('' as any) });
       onSuccess?.();
-    } catch {}
+    } catch (e: any) {
+      toastError(e?.data?.message ?? e?.message ?? 'Failed to record repayment');
+    }
   };
 
   const inputCls = 'w-full px-4 py-3 rounded-lg border border-gray-200 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all';
@@ -49,31 +49,6 @@ export function LoanRepaymentForm({ loanId, suggestedAmount, outstandingBalance,
 
   return (
     <div className="space-y-4">
-      {success && (
-        <div className="flex items-start gap-2 p-3 rounded-lg bg-green-50 border border-green-200">
-          <svg className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <p className="text-sm text-green-700">Repayment recorded successfully.</p>
-        </div>
-      )}
-      {warning && (
-        <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
-          <svg className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-          <p className="text-sm text-amber-800">{warning}</p>
-        </div>
-      )}
-      {!!error && (
-        <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 border border-red-200">
-          <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <p className="text-sm text-red-700">{String((error as any)?.data?.message ?? (error as any)?.message ?? 'Failed to record repayment')}</p>
-        </div>
-      )}
-
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         {!loanId && (
           <div>
@@ -87,12 +62,17 @@ export function LoanRepaymentForm({ loanId, suggestedAmount, outstandingBalance,
           <label className={labelCls}>Repayment Amount (ETB) *</label>
           <div className="relative">
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">ETB</span>
-            <input
-              type="number" step="0.01"
-              {...register('amount', { valueAsNumber: true })}
-              className="w-full pl-14 pr-4 py-3 rounded-lg border border-gray-200 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all"
-              placeholder="0.00"
-              max={outstandingBalance}
+            <Controller
+              name="amount"
+              control={control}
+              render={({ field }) => (
+                <CurrencyInput
+                  value={field.value}
+                  onChange={(v) => field.onChange(v ?? 0)}
+                  className="w-full pl-14 pr-4 py-3 rounded-lg border border-gray-200 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all"
+                  placeholder="0"
+                />
+              )}
             />
           </div>
           {errors.amount && <p className={errCls}>{errors.amount.message}</p>}

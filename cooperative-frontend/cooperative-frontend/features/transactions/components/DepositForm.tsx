@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useDepositMutation, useGetAccountByIdQuery } from '@/features/accounts/accountsApi';
 import { MemberAccountPicker } from '@/components/common/MemberAccountPicker';
+import { CurrencyInput } from '@/components/common/CurrencyInput';
+import { toastSuccess, toastError } from '@/components/common/Toast';
 import type { AccountDto } from '@/features/accounts/accountsApi';
 
 interface Props {
@@ -13,10 +15,8 @@ interface Props {
 export function DepositForm({ accountId: fixedAccountId, onSuccess }: Props) {
   const [selectedAccountId, setSelectedAccountId] = useState(fixedAccountId ?? '');
   const [selectedAccount, setSelectedAccount] = useState<AccountDto | null>(null);
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState<number | undefined>(undefined);
   const [notes, setNotes] = useState('');
-  const [success, setSuccess] = useState<string | null>(null);
-  const [errorMsg, setErrorMsg] = useState('');
 
   const { data: prefilledAccount } = useGetAccountByIdQuery(fixedAccountId!, { skip: !fixedAccountId });
   const accountInfo = fixedAccountId ? prefilledAccount : selectedAccount;
@@ -24,19 +24,16 @@ export function DepositForm({ accountId: fixedAccountId, onSuccess }: Props) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedAccountId) { setErrorMsg('Please select an account.'); return; }
-    const amt = parseFloat(amount);
-    if (!amt || amt <= 0) { setErrorMsg('Enter a valid amount.'); return; }
-    setErrorMsg('');
-    setSuccess(null);
+    if (!selectedAccountId) { toastError('Please select an account'); return; }
+    if (!amount || amount <= 0) { toastError('Enter a valid amount'); return; }
     try {
-      const result = await deposit({ accountId: selectedAccountId, data: { amount: amt, notes } }).unwrap();
-      setSuccess(`Deposit successful! New balance: ETB ${Number(result.balanceAfter).toLocaleString()}`);
-      setAmount('');
+      const result = await deposit({ accountId: selectedAccountId, data: { amount, notes } }).unwrap();
+      toastSuccess(`Deposit successful — ETB ${Number(result.balanceAfter).toLocaleString()} new balance`);
+      setAmount(undefined);
       setNotes('');
       onSuccess?.();
     } catch (e: any) {
-      setErrorMsg(e?.data?.message ?? e?.message ?? 'Deposit failed.');
+      toastError(e?.data?.message ?? e?.message ?? 'Deposit failed');
     }
   };
 
@@ -58,24 +55,6 @@ export function DepositForm({ accountId: fixedAccountId, onSuccess }: Props) {
       </div>
 
       <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-        {errorMsg && (
-          <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 border border-red-200">
-            <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p className="text-sm text-red-700">{errorMsg}</p>
-          </div>
-        )}
-
-        {success && (
-          <div className="flex items-start gap-2 p-3 rounded-lg bg-green-50 border border-green-200">
-            <svg className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p className="text-sm text-green-700">{success}</p>
-          </div>
-        )}
-
         {/* Account selection */}
         {fixedAccountId ? (
           <div className="p-3 rounded-lg bg-gray-50 border border-gray-200 text-sm">
@@ -87,7 +66,7 @@ export function DepositForm({ accountId: fixedAccountId, onSuccess }: Props) {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Select Account</label>
             <MemberAccountPicker
-              onAccountSelected={(id, acc) => { setSelectedAccountId(id); setSelectedAccount(acc); setErrorMsg(''); setSuccess(null); }}
+              onAccountSelected={(id, acc) => { setSelectedAccountId(id); setSelectedAccount(acc); setErrorMsg(''); }}
             />
           </div>
         )}
@@ -111,12 +90,11 @@ export function DepositForm({ accountId: fixedAccountId, onSuccess }: Props) {
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Amount (ETB) *</label>
           <div className="relative">
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">ETB</span>
-            <input
-              type="number" step="0.01" min="0.01"
+            <CurrencyInput
               value={amount}
-              onChange={(e) => { setAmount(e.target.value); setErrorMsg(''); setSuccess(null); }}
+              onChange={(v) => { setAmount(v); setErrorMsg(''); }}
               className="w-full pl-14 pr-4 py-3 rounded-lg border border-gray-200 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all"
-              placeholder="0.00"
+              placeholder="0"
             />
           </div>
           {accountInfo?.accountType === 'REGULAR_SAVING' && (

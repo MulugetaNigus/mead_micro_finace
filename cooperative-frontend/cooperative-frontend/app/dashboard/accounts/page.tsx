@@ -26,7 +26,7 @@ function MemberAccountsTable({ memberId, memberName, router }: { memberId: strin
           onClick={() => router.push(`/dashboard/accounts/${account.id}`)}
         >
           <td className="px-4 py-3 text-sm text-blue-600 font-medium font-mono">{account.id.slice(0, 8)}…</td>
-          <td className="px-4 py-3 text-sm text-gray-700">{idx === 0 ? memberName : ''}</td>
+          <td className="px-4 py-3 text-sm text-gray-700">{memberName}</td>
           <td className="px-4 py-3 text-sm text-gray-700">{account.accountType.replace(/_/g, ' ')}</td>
           <td className="px-4 py-3 text-sm text-right font-semibold text-gray-900">
             ETB {Number(account.balance).toLocaleString()}

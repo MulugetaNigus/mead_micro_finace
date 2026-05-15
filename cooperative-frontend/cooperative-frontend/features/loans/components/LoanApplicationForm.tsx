@@ -7,6 +7,8 @@ import { z } from 'zod';
 import { CircularProgress } from '@mui/material';
 import { useCreateApplicationMutation } from '../loansApi';
 import { MemberSearchInput } from '@/components/common/MemberSearchInput';
+import { CurrencyInput } from '@/components/common/CurrencyInput';
+import { toastSuccess, toastError } from '@/components/common/Toast';
 import { CollateralForm } from '@/features/collateral/components/CollateralForm';
 import { DocumentManager } from '@/features/documents/components/DocumentManager';
 
@@ -42,12 +44,14 @@ export function LoanApplicationForm({ onSuccess }: Props) {
   const onSubmit = async (data: FormData) => {
     try {
       const result = await createApplication(data).unwrap() as any;
-      // Backend returns the application ID (UUID string or object with id)
       const id = typeof result === 'string' ? result : result?.id ?? result;
       setApplicationId(String(id));
       setSubmittedMemberId(data.memberId);
+      toastSuccess('Application submitted successfully');
       setStep('attachments');
-    } catch {}
+    } catch (e: any) {
+      toastError(e?.data?.message ?? 'Failed to submit application');
+    }
   };
 
   const handleFinish = () => {
@@ -111,15 +115,6 @@ export function LoanApplicationForm({ onSuccess }: Props) {
       {/* Step 1: Application form */}
       {step === 'form' && (
         <form onSubmit={handleSubmit(onSubmit)} className="px-6 py-5 space-y-5">
-          {!!error && (
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 border border-red-200">
-              <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <p className="text-sm text-red-700">{String((error as any)?.data?.message ?? 'Failed to submit application')}</p>
-            </div>
-          )}
-
           <Controller
             name="memberId"
             control={control}
@@ -143,11 +138,17 @@ export function LoanApplicationForm({ onSuccess }: Props) {
               <label className={labelCls}>Requested Amount (ETB) *</label>
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">ETB</span>
-                <input
-                  type="number" step="0.01"
-                  {...register('requestedAmount', { valueAsNumber: true })}
-                  className="w-full pl-14 pr-4 py-3 rounded-lg border border-gray-200 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
-                  placeholder="0.00"
+                <Controller
+                  name="requestedAmount"
+                  control={control}
+                  render={({ field }) => (
+                    <CurrencyInput
+                      value={field.value}
+                      onChange={(v) => field.onChange(v ?? 0)}
+                      className="w-full pl-14 pr-4 py-3 rounded-lg border border-gray-200 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
+                      placeholder="0"
+                    />
+                  )}
                 />
               </div>
               {errors.requestedAmount && <p className={errCls}>{errors.requestedAmount.message}</p>}
@@ -188,16 +189,6 @@ export function LoanApplicationForm({ onSuccess }: Props) {
       {/* Step 2: Optional collateral + documents */}
       {step === 'attachments' && applicationId && (
         <div className="px-6 py-5 space-y-5">
-          <div className="flex items-start gap-2 p-3 rounded-lg bg-green-50 border border-green-200">
-            <svg className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <div>
-              <p className="text-sm font-medium text-green-800">Application submitted successfully</p>
-              <p className="text-xs text-green-600 mt-0.5">ID: <span className="font-mono">{applicationId.slice(0, 8)}…</span></p>
-            </div>
-          </div>
-
           <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
             <p className="text-xs text-blue-800">
               <span className="font-semibold">Optional:</span> You can attach collateral and supporting documents now, or skip and add them later from the Pending Approval queue.

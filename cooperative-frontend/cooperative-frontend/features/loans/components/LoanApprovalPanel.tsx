@@ -11,6 +11,7 @@ import {
 import { toastSuccess, toastError } from '@/components/common/Toast';
 import { CollateralForm } from '@/features/collateral/components/CollateralForm';
 import { DocumentManager } from '@/features/documents/components/DocumentManager';
+import { Modal } from '@/components/common/Modal';
 import { Pagination } from '@/components/common/Pagination';
 import type { LoanApplication } from '@/types';
 
@@ -22,13 +23,12 @@ export function LoanApprovalPanel() {
   const [startReview] = useStartReviewMutation();
   const [reject, { isLoading: rejecting }] = useRejectApplicationMutation();
 
+  const [selectedApp, setSelectedApp] = useState<LoanApplication | null>(null);
   const [approveTarget, setApproveTarget] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [rejectError, setRejectError] = useState('');
-  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Client-side sort + pagination
   const [sortField, setSortField] = useState<SortField>('submissionDate');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(0);
@@ -66,6 +66,7 @@ export function LoanApprovalPanel() {
       await approve(app.id).unwrap();
       toastSuccess('Loan application approved');
       setApproveTarget(null);
+      setSelectedApp(null);
     } catch (e: any) {
       toastError(e?.data?.message ?? 'Failed to approve application');
       setApproveTarget(null);
@@ -79,7 +80,16 @@ export function LoanApprovalPanel() {
       await reject({ id: app.id, reason: rejectReason }).unwrap();
       toastSuccess('Application rejected');
       setRejectTarget(null); setRejectReason(''); setRejectError('');
+      setSelectedApp(null);
     } catch (e: any) { toastError(e?.data?.message ?? 'Failed to reject application'); }
+  };
+
+  const handleCloseModal = () => {
+    setSelectedApp(null);
+    setApproveTarget(null);
+    setRejectTarget(null);
+    setRejectReason('');
+    setRejectError('');
   };
 
   if (isLoading) return <div className="flex justify-center py-8"><CircularProgress size={24} /></div>;
@@ -89,49 +99,41 @@ export function LoanApprovalPanel() {
   }
 
   return (
-    <div className="space-y-3">
-      {/* Document reminder */}
-      <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200">
-        <svg className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-        </svg>
-        <p className="text-xs text-amber-800">Ensure all required documents (ID copy, employment letter, collateral proof) are uploaded before approving.</p>
-      </div>
+    <>
+      <div className="space-y-3">
+        {/* Document reminder */}
+        <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200">
+          <svg className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <p className="text-xs text-amber-800">Ensure all required documents (ID copy, employment letter, collateral proof) are uploaded before approving.</p>
+        </div>
 
-      {/* Table */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">ID</th>
-              <th
-                className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 cursor-pointer select-none hover:text-gray-700"
-                onClick={() => handleSort('requestedAmount')}
-              >
-                Amount {sortIcon('requestedAmount')}
-              </th>
-              <th
-                className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 cursor-pointer select-none hover:text-gray-700"
-                onClick={() => handleSort('loanDurationMonths')}
-              >
-                Duration {sortIcon('loanDurationMonths')}
-              </th>
-              <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Purpose</th>
-              <th
-                className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 cursor-pointer select-none hover:text-gray-700"
-                onClick={() => handleSort('submissionDate')}
-              >
-                Submitted {sortIcon('submissionDate')}
-              </th>
-              <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {paged.map((app) => (
-              <React.Fragment key={app.id}>
+        {/* Table */}
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">ID</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 cursor-pointer select-none hover:text-gray-700" onClick={() => handleSort('requestedAmount')}>
+                  Amount {sortIcon('requestedAmount')}
+                </th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 cursor-pointer select-none hover:text-gray-700" onClick={() => handleSort('loanDurationMonths')}>
+                  Duration {sortIcon('loanDurationMonths')}
+                </th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500">Purpose</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 cursor-pointer select-none hover:text-gray-700" onClick={() => handleSort('submissionDate')}>
+                  Submitted {sortIcon('submissionDate')}
+                </th>
+                <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {paged.map((app) => (
                 <tr
+                  key={app.id}
                   className="hover:bg-gray-50 cursor-pointer transition-colors"
-                  onClick={() => setExpandedId(expandedId === app.id ? null : app.id)}
+                  onClick={() => { setSelectedApp(app); setApproveTarget(null); setRejectTarget(null); }}
                 >
                   <td className="px-4 py-2.5 font-mono text-xs text-gray-400">{app.id.slice(0, 8)}…</td>
                   <td className="px-4 py-2.5 font-semibold text-gray-800">ETB {Number(app.requestedAmount).toLocaleString()}</td>
@@ -141,99 +143,146 @@ export function LoanApprovalPanel() {
                     {app.submissionDate ? new Date(app.submissionDate).toLocaleDateString() : '—'}
                   </td>
                   <td className="px-4 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
-                    {approveTarget !== app.id && rejectTarget !== app.id && (
-                      <div className="flex gap-1.5 justify-end">
-                        <button
-                          onClick={() => { setApproveTarget(app.id); setRejectTarget(null); setExpandedId(app.id); }}
-                          disabled={approving}
-                          className="px-2.5 py-1 rounded-md bg-green-600 text-white text-xs font-medium hover:bg-green-700 disabled:opacity-50"
-                        >
-                          Approve
-                        </button>
-                        <button
-                          onClick={() => { setRejectTarget(app.id); setApproveTarget(null); setRejectReason(''); setRejectError(''); setExpandedId(app.id); }}
-                          className="px-2.5 py-1 rounded-md bg-red-600 text-white text-xs font-medium hover:bg-red-700"
-                        >
-                          Reject
-                        </button>
-                      </div>
-                    )}
+                    <div className="flex gap-1.5 justify-end">
+                      <button
+                        onClick={() => { setSelectedApp(app); setApproveTarget(app.id); setRejectTarget(null); }}
+                        disabled={approving}
+                        className="px-2.5 py-1 rounded-md bg-green-600 text-white text-xs font-medium hover:bg-green-700 disabled:opacity-50"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => { setSelectedApp(app); setRejectTarget(app.id); setApproveTarget(null); setRejectReason(''); setRejectError(''); }}
+                        className="px-2.5 py-1 rounded-md bg-red-600 text-white text-xs font-medium hover:bg-red-700"
+                      >
+                        Reject
+                      </button>
+                    </div>
                   </td>
                 </tr>
+              ))}
+            </tbody>
+          </table>
 
-                {expandedId === app.id && (
-                  <tr key={`${app.id}-detail`}>
-                    <td colSpan={6} className="px-4 py-4 bg-gray-50 border-t border-gray-100">
-                      {/* Inline approve confirmation */}
-                      {approveTarget === app.id && (
-                        <div className="mb-4 p-3 rounded-lg bg-green-50 border border-green-200">
-                          <p className="text-xs font-semibold text-green-800 mb-2">
-                            Confirm approval of ETB {Number(app.requestedAmount).toLocaleString()} for {app.loanDurationMonths} months?
-                          </p>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleApprove(app)}
-                              disabled={approving}
-                              className="px-3 py-1.5 rounded-md bg-green-600 text-white text-xs font-medium hover:bg-green-700 disabled:opacity-50 flex items-center gap-1"
-                            >
-                              {approving && <CircularProgress size={10} color="inherit" />}
-                              {approving ? 'Approving...' : 'Confirm Approve'}
-                            </button>
-                            <button onClick={() => setApproveTarget(null)} className="px-3 py-1.5 rounded-md border border-gray-200 text-xs text-gray-600 hover:bg-white">Cancel</button>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Inline reject form */}
-                      {rejectTarget === app.id && (
-                        <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200">
-                          <p className="text-xs font-semibold text-red-800 mb-2">Rejection reason</p>
-                          <textarea
-                            value={rejectReason}
-                            onChange={(e) => { setRejectReason(e.target.value); setRejectError(''); }}
-                            rows={2}
-                            placeholder="Reason for rejection..."
-                            className="w-full px-3 py-2 rounded-md border border-red-200 text-xs text-gray-800 focus:outline-none focus:ring-1 focus:ring-red-400 resize-none bg-white"
-                          />
-                          {rejectError && <p className="text-xs text-red-500 mt-1">{rejectError}</p>}
-                          <div className="flex gap-2 mt-2">
-                            <button onClick={() => handleReject(app)} disabled={rejecting} className="px-3 py-1.5 rounded-md bg-red-600 text-white text-xs font-medium hover:bg-red-700 disabled:opacity-50">
-                              {rejecting ? 'Rejecting...' : 'Confirm Reject'}
-                            </button>
-                            <button onClick={() => { setRejectTarget(null); setRejectReason(''); }} className="px-3 py-1.5 rounded-md border border-gray-200 text-xs text-gray-600 hover:bg-white">Cancel</button>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Collateral + Documents */}
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Collateral</p>
-                          <CollateralForm applicationId={app.id} memberId={app.memberId} />
-                        </div>
-                        <div>
-                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Documents</p>
-                          <DocumentManager entityType="LOAN_APPLICATION" entityId={app.id} canDelete={true} />
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </React.Fragment>
-            ))}
-          </tbody>
-        </table>
-
-        <Pagination
-          page={page}
-          totalPages={totalPages}
-          totalElements={sorted.length}
-          pageSize={pageSize}
-          onPageChange={setPage}
-          onPageSizeChange={() => {}}
-          pageSizeOptions={[5, 10, 20]}
-        />
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            totalElements={sorted.length}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={() => {}}
+            pageSizeOptions={[5, 10, 20]}
+          />
+        </div>
       </div>
-    </div>
+
+      {/* Detail Modal */}
+      <Modal
+        open={!!selectedApp}
+        onClose={handleCloseModal}
+        title={`Application — ETB ${selectedApp ? Number(selectedApp.requestedAmount).toLocaleString() : ''} · ${selectedApp?.loanDurationMonths}mo`}
+        width="max-w-3xl"
+      >
+        {selectedApp && (
+          <div className="space-y-5">
+            {/* Application summary */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {[
+                { label: 'Amount', value: `ETB ${Number(selectedApp.requestedAmount).toLocaleString()}` },
+                { label: 'Duration', value: `${selectedApp.loanDurationMonths} months` },
+                { label: 'Purpose', value: selectedApp.loanPurpose },
+                { label: 'Submitted', value: selectedApp.submissionDate ? new Date(selectedApp.submissionDate).toLocaleDateString() : '—' },
+                { label: 'Status', value: selectedApp.status as string },
+                { label: 'Member ID', value: selectedApp.memberId?.slice(0, 8) + '…' },
+              ].map(({ label, value }) => (
+                <div key={label} className="p-3 rounded-xl bg-gray-50 border border-gray-100">
+                  <p className="text-xs text-gray-400 mb-0.5">{label}</p>
+                  <p className="text-sm font-semibold text-gray-800">{value}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Approve confirmation */}
+            {approveTarget === selectedApp.id && (
+              <div className="p-4 rounded-xl bg-green-50 border border-green-200">
+                <p className="text-sm font-semibold text-green-800 mb-3">
+                  Confirm approval of ETB {Number(selectedApp.requestedAmount).toLocaleString()} for {selectedApp.loanDurationMonths} months?
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleApprove(selectedApp)}
+                    disabled={approving}
+                    className="px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {approving && <CircularProgress size={14} color="inherit" />}
+                    {approving ? 'Approving…' : 'Confirm Approve'}
+                  </button>
+                  <button onClick={() => setApproveTarget(null)} className="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Reject form */}
+            {rejectTarget === selectedApp.id && (
+              <div className="p-4 rounded-xl bg-red-50 border border-red-200">
+                <p className="text-sm font-semibold text-red-800 mb-2">Rejection reason *</p>
+                <textarea
+                  value={rejectReason}
+                  onChange={(e) => { setRejectReason(e.target.value); setRejectError(''); }}
+                  rows={3}
+                  placeholder="Reason for rejection…"
+                  className="w-full px-3 py-2 rounded-lg border border-red-200 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-400 resize-none bg-white"
+                />
+                {rejectError && <p className="text-xs text-red-500 mt-1">{rejectError}</p>}
+                <div className="flex gap-2 mt-3">
+                  <button
+                    onClick={() => handleReject(selectedApp)}
+                    disabled={rejecting}
+                    className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-50"
+                  >
+                    {rejecting ? 'Rejecting…' : 'Confirm Reject'}
+                  </button>
+                  <button onClick={() => { setRejectTarget(null); setRejectReason(''); }} className="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Action buttons (when no action selected) */}
+            {!approveTarget && !rejectTarget && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setApproveTarget(selectedApp.id); setRejectTarget(null); }}
+                  className="px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700"
+                >
+                  Approve
+                </button>
+                <button
+                  onClick={() => { setRejectTarget(selectedApp.id); setApproveTarget(null); setRejectReason(''); setRejectError(''); }}
+                  className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700"
+                >
+                  Reject
+                </button>
+              </div>
+            )}
+
+            {/* Collateral + Documents */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-2 border-t border-gray-100">
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Collateral</p>
+                <CollateralForm applicationId={selectedApp.id} memberId={selectedApp.memberId} />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Documents</p>
+                <DocumentManager entityType="LOAN_APPLICATION" entityId={selectedApp.id} canDelete={true} />
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+    </>
   );
 }

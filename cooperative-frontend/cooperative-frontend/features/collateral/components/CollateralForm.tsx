@@ -12,6 +12,7 @@ import {
 } from '../collateralApi';
 import { toastSuccess, toastError } from '@/components/common/Toast';
 import { MemberAccountPicker } from '@/components/common/MemberAccountPicker';
+import { CurrencyInput } from '@/components/common/CurrencyInput';
 import { useGetAccountsByMemberQuery } from '@/features/accounts/accountsApi';
 import { useAuth } from '@/hooks/useAuth';
 import { ROLES } from '@/constants/app';
@@ -307,7 +308,12 @@ export function CollateralForm({ applicationId, loanId, memberId, memberType, re
                 </div>
                 <div>
                   <label className={labelCls}>Pledged Amount (ETB) *</label>
-                  <input type="number" step="0.01" value={form.pledgedAmount} onChange={e => set('pledgedAmount', e.target.value)} className={inputCls} placeholder="0.00" />
+                  <CurrencyInput
+                    value={form.pledgedAmount === '' ? undefined : Number(form.pledgedAmount)}
+                    onChange={(v) => set('pledgedAmount', v !== undefined ? String(v) : '')}
+                    className={inputCls}
+                    placeholder="0"
+                  />
                 </div>
               </div>
             )}
@@ -329,7 +335,12 @@ export function CollateralForm({ applicationId, loanId, memberId, memberType, re
                 </div>
                 <div>
                   <label className={labelCls}>Guaranteed Amount (ETB) *</label>
-                  <input type="number" step="0.01" value={form.guaranteedAmount} onChange={e => set('guaranteedAmount', e.target.value)} className={inputCls} placeholder="0.00" />
+                  <CurrencyInput
+                    value={form.guaranteedAmount === '' ? undefined : Number(form.guaranteedAmount)}
+                    onChange={(v) => set('guaranteedAmount', v !== undefined ? String(v) : '')}
+                    className={inputCls}
+                    placeholder="0"
+                  />
                 </div>
               </div>
             )}
@@ -356,7 +367,12 @@ export function CollateralForm({ applicationId, loanId, memberId, memberType, re
                 </div>
                 <div>
                   <label className={labelCls}>Collateral Value (ETB) *</label>
-                  <input type="number" step="0.01" value={form.collateralValue} onChange={e => set('collateralValue', e.target.value)} className={inputCls} placeholder="0.00" />
+                  <CurrencyInput
+                    value={form.collateralValue === '' ? undefined : Number(form.collateralValue)}
+                    onChange={(v) => set('collateralValue', v !== undefined ? String(v) : '')}
+                    className={inputCls}
+                    placeholder="0"
+                  />
                 </div>
                 <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
                   External cooperative collateral requires manager approval before it counts toward loan coverage.
@@ -382,7 +398,12 @@ export function CollateralForm({ applicationId, loanId, memberId, memberType, re
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className={labelCls}>Appraised Value (ETB) *</label>
-                    <input type="number" step="0.01" value={form.appraisalValue} onChange={e => set('appraisalValue', e.target.value)} className={inputCls} placeholder="0.00" />
+                    <CurrencyInput
+                      value={form.appraisalValue === '' ? undefined : Number(form.appraisalValue)}
+                      onChange={(v) => set('appraisalValue', v !== undefined ? String(v) : '')}
+                      className={inputCls}
+                      placeholder="0"
+                    />
                   </div>
                   <div>
                     <label className={labelCls}>Appraisal Date *</label>

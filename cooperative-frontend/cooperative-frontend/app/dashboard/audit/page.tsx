@@ -6,6 +6,7 @@ import { useGetAuditLogsQuery } from '@/features/audit/auditApi';
 import { useGetMembersQuery } from '@/features/members/membersApi';
 import { RoleGuard } from '@/components/auth/RoleGuard';
 import { Pagination } from '@/components/common/Pagination';
+import { Modal } from '@/components/common/Modal';
 import { exportToCsv } from '@/lib/exportCsv';
 import type { AuditLog } from '@/types';
 
@@ -52,7 +53,7 @@ const ACTION_COLORS: Record<string, string> = {
 export default function AuditPage() {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(50);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
   const [sortField, setSortField] = useState('timestamp');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [memberSearch, setMemberSearch] = useState('');
@@ -253,50 +254,30 @@ export default function AuditPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {logs.map((log: AuditLog) => (
-                    <React.Fragment key={log.id}>
-                      <tr
-                        className="hover:bg-gray-50 transition-colors cursor-pointer"
-                        onClick={() => setExpandedId(expandedId === log.id ? null : log.id)}
-                      >
-                        <td className="px-4 py-3 text-gray-600 whitespace-nowrap text-xs">
-                          {new Date(log.timestamp).toLocaleString()}
-                        </td>
-                        <td className="px-4 py-3 text-gray-700 font-medium">{log.username ?? log.userId}</td>
-                        <td className="px-4 py-3">
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${ACTION_COLORS[log.action] ?? 'bg-gray-100 text-gray-600'}`}>
-                            {log.action}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-gray-600">{log.entityType}</td>
-                        <td className="px-4 py-3 text-gray-400 font-mono text-xs truncate max-w-[140px]">{log.entityId}</td>
-                        <td className="px-4 py-3 text-gray-500 text-xs max-w-[220px] truncate">{log.description}</td>
-                        <td className="px-4 py-3 text-gray-400 text-xs">
-                          {expandedId === log.id ? '▲' : '▼'}
-                        </td>
-                      </tr>
-                      {expandedId === log.id && (
-                        <tr key={`${log.id}-detail`} className="bg-gray-50">
-                          <td colSpan={7} className="px-6 py-4">
-                            <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-xs">
-                              <div><span className="text-gray-400 font-medium">ID:</span> <span className="font-mono text-gray-600">{log.id}</span></div>
-                              <div><span className="text-gray-400 font-medium">User ID:</span> <span className="font-mono text-gray-600">{log.userId ?? '—'}</span></div>
-                              <div><span className="text-gray-400 font-medium">Username:</span> <span className="text-gray-700">{log.username ?? '—'}</span></div>
-                              <div><span className="text-gray-400 font-medium">IP Address:</span> <span className="text-gray-700">{log.ipAddress ?? '—'}</span></div>
-                              <div><span className="text-gray-400 font-medium">Status:</span>
-                                <span className={`ml-1 px-1.5 py-0.5 rounded text-xs font-semibold ${log.status === 'FAILURE' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                                  {log.status ?? 'SUCCESS'}
-                                </span>
-                              </div>
-                              <div><span className="text-gray-400 font-medium">Timestamp:</span> <span className="text-gray-700">{new Date(log.timestamp).toLocaleString()}</span></div>
-                              <div className="col-span-2"><span className="text-gray-400 font-medium">Description:</span> <span className="text-gray-700">{log.description ?? '—'}</span></div>
-                              {log.errorMessage && (
-                                <div className="col-span-2"><span className="text-red-500 font-medium">Error:</span> <span className="text-red-600">{log.errorMessage}</span></div>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
+                    <tr
+                      key={log.id}
+                      className="hover:bg-gray-50 transition-colors cursor-pointer"
+                      onClick={() => setSelectedLog(log)}
+                    >
+                      <td className="px-4 py-3 text-gray-600 whitespace-nowrap text-xs">
+                        {new Date(log.timestamp).toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-gray-700 font-medium">{log.username ?? log.userId}</td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${ACTION_COLORS[log.action] ?? 'bg-gray-100 text-gray-600'}`}>
+                          {log.action}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">{log.entityType}</td>
+                      <td className="px-4 py-3 text-gray-400 font-mono text-xs truncate max-w-[140px]">{log.entityId}</td>
+                      <td className="px-4 py-3 text-gray-500 text-xs max-w-[220px] truncate">{log.description}</td>
+                      <td className="px-4 py-3 text-gray-400 text-xs">
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                      </td>
+                    </tr>
                   ))}
                 </tbody>
               </table>
@@ -315,6 +296,75 @@ export default function AuditPage() {
           pageSizeOptions={[25, 50, 100, 200]}
         />
       </div>
+
+      {/* Audit Log Detail Modal */}
+      <Modal
+        open={!!selectedLog}
+        onClose={() => setSelectedLog(null)}
+        title="Audit Log Detail"
+        width="max-w-lg"
+      >
+        {selectedLog && (
+          <div className="space-y-4">
+            {/* Action badge + status */}
+            <div className="flex items-center gap-3">
+              <span className={`px-3 py-1 rounded-full text-sm font-semibold ${ACTION_COLORS[selectedLog.action] ?? 'bg-gray-100 text-gray-600'}`}>
+                {selectedLog.action}
+              </span>
+              <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                selectedLog.status === 'FAILURE' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+              }`}>
+                {selectedLog.status ?? 'SUCCESS'}
+              </span>
+            </div>
+
+            {/* Description */}
+            {selectedLog.description && (
+              <div className="p-3 rounded-xl bg-gray-50 border border-gray-100">
+                <p className="text-xs font-semibold text-gray-500 mb-1">Description</p>
+                <p className="text-sm text-gray-800">{selectedLog.description}</p>
+              </div>
+            )}
+
+            {/* Details grid */}
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { label: 'Timestamp',   value: new Date(selectedLog.timestamp).toLocaleString() },
+                { label: 'Username',    value: selectedLog.username ?? '—' },
+                { label: 'User ID',     value: selectedLog.userId ?? '—', mono: true },
+                { label: 'Entity Type', value: selectedLog.entityType ?? '—' },
+                { label: 'Entity ID',   value: selectedLog.entityId ?? '—', mono: true },
+              ].map(({ label, value, mono }) => (
+                <div key={label} className="p-3 rounded-xl bg-gray-50 border border-gray-100">
+                  <p className="text-xs font-semibold text-gray-400 mb-0.5">{label}</p>
+                  <p className={`text-sm text-gray-800 break-all ${mono ? 'font-mono text-xs' : ''}`}>{value}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Log ID — full width */}
+            <div className="p-3 rounded-xl bg-gray-50 border border-gray-100">
+              <p className="text-xs font-semibold text-gray-400 mb-0.5">Log ID</p>
+              <p className="text-xs font-mono text-gray-600 break-all">{selectedLog.id}</p>
+            </div>
+
+            {/* Error message if any */}
+            {selectedLog.errorMessage && (
+              <div className="p-3 rounded-xl bg-red-50 border border-red-200">
+                <p className="text-xs font-semibold text-red-500 mb-0.5">Error</p>
+                <p className="text-sm text-red-700">{selectedLog.errorMessage}</p>
+              </div>
+            )}
+
+            <button
+              onClick={() => setSelectedLog(null)}
+              className="w-full py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        )}
+      </Modal>
     </RoleGuard>
   );
 }

@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { CircularProgress } from '@mui/material';
 import { useTransferSharesMutation } from '../shareCapitalApi';
 import { MemberSearchInput } from '@/components/common/MemberSearchInput';
+import { toastSuccess, toastError } from '@/components/common/Toast';
 
 const schema = z.object({
   fromMemberId: z.string().min(1, 'Source member is required'),
@@ -23,7 +24,7 @@ interface Props {
 }
 
 export function ShareTransferForm({ onSuccess }: Props) {
-  const [transferShares, { isLoading, error, isSuccess }] = useTransferSharesMutation();
+  const [transferShares, { isLoading }] = useTransferSharesMutation();
 
   const { handleSubmit, reset, control, register, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -33,8 +34,11 @@ export function ShareTransferForm({ onSuccess }: Props) {
     try {
       await transferShares(data).unwrap();
       reset();
+      toastSuccess('Transfer complete');
       onSuccess?.();
-    } catch {}
+    } catch (err: any) {
+      toastError(err?.data?.message ?? 'Failed to transfer shares');
+    }
   };
 
   const inputCls = 'w-full px-4 py-3 rounded-lg border border-gray-200 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all';
@@ -57,23 +61,6 @@ export function ShareTransferForm({ onSuccess }: Props) {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="px-6 py-5 space-y-5">
-        {isSuccess && (
-          <div className="flex items-start gap-2 p-3 rounded-lg bg-green-50 border border-green-200">
-            <svg className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p className="text-sm text-green-700">Shares transferred successfully.</p>
-          </div>
-        )}
-        {!!error && (
-          <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 border border-red-200">
-            <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p className="text-sm text-red-700">{String((error as any)?.data?.message ?? 'Failed to transfer shares')}</p>
-          </div>
-        )}
-
         <Controller
           name="fromMemberId"
           control={control}

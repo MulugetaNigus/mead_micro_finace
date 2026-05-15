@@ -21,6 +21,8 @@ import type { AccountDto } from '@/features/accounts/accountsApi';
 import { RoleGuard } from '@/components/auth/RoleGuard';
 import { DocumentManager } from '@/features/documents/components/DocumentManager';
 import { SimplePagination } from '@/components/common/SimplePagination';
+import { CurrencyInput } from '@/components/common/CurrencyInput';
+import { toastSuccess, toastError } from '@/components/common/Toast';
 import type { MemberSuspension, PassbookTransactionDto, PassbookLoanDto } from '@/types';
 
 export default function MemberDetailPage() {
@@ -31,12 +33,13 @@ export default function MemberDetailPage() {
   const [tab, setTab] = useState<'overview' | 'accounts' | 'passbook' | 'suspensions' | 'documents' | 'withdrawal'>('overview');
   const [suspendReason, setSuspendReason] = useState('');
   const [showSuspendForm, setShowSuspendForm] = useState(false);
+  const [suspendReasonError, setSuspendReasonError] = useState('');
   const [withdrawalReason, setWithdrawalReason] = useState('');
   const [showWithdrawalConfirm, setShowWithdrawalConfirm] = useState(false);
+  const [withdrawalReasonError, setWithdrawalReasonError] = useState('');
   const [showEditForm, setShowEditForm] = useState(false);
   const [editData, setEditData] = useState({ email: '', phoneNumber: '', address: '', employmentStatus: '' });
-  const [editError, setEditError] = useState('');
-  const [editSuccess, setEditSuccess] = useState(false);
+  const [editFieldErrors, setEditFieldErrors] = useState<Record<string, string>>({});
 
   // Pagination state
   const [regularPage, setRegularPage] = useState(0);
@@ -83,11 +86,47 @@ export default function MemberDetailPage() {
   const [decreaseDeduction, { isLoading: decreasing }] = useDecreaseDeductionMutation();
   const [updateMember, { isLoading: updating }] = useUpdateMemberMutation();
 
-  const [deductionAmount, setDeductionAmount] = useState('');
+  const [deductionAmount, setDeductionAmount] = useState<number | undefined>(undefined);
   const [deductionError, setDeductionError] = useState('');
 
+  // Inline validation helpers
+  const validateEditForm = () => {
+    const errs: Record<string, string> = {};
+    if (editData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editData.email)) {
+      errs.email = 'Enter a valid email address';
+    }
+    if (editData.phoneNumber && !/^\+?[0-9]{7,15}$/.test(editData.phoneNumber)) {
+      errs.phoneNumber = 'Enter a valid phone number (e.g. +251912345678)';
+    }
+    if (editData.address && editData.address.length > 200) {
+      errs.address = 'Address must be at most 200 characters';
+    }
+    return errs;
+  };
+
+  const validateDeduction = (value: number | undefined) => {
+    if (value === undefined || value <= 0) return 'Amount must be a positive number';
+    return '';
+  };
+
+  const validateSuspendReason = (value: string) => {
+    if (!value.trim()) return 'Suspension reason is required';
+    if (value.trim().length < 5) return 'Reason must be at least 5 characters';
+    if (value.trim().length > 500) return 'Reason must be at most 500 characters';
+    return '';
+  };
+
+  const validateWithdrawalReason = (value: string) => {
+    if (!value.trim()) return 'Withdrawal reason is required';
+    if (value.trim().length < 5) return 'Reason must be at least 5 characters';
+    if (value.trim().length > 500) return 'Reason must be at most 500 characters';
+    return '';
+  };
+
   const handleSuspend = async () => {
-    if (!suspendReason.trim()) return;
+    const err = validateSuspendReason(suspendReason);
+    if (err) { setSuspendReasonError(err); return; }
+    setSuspendReasonError('');
     try {
       await suspendMember({ id, reason: suspendReason }).unwrap();
       setShowSuspendForm(false);
@@ -100,7 +139,9 @@ export default function MemberDetailPage() {
   };
 
   const handleWithdrawal = async () => {
-    if (!withdrawalReason.trim()) return;
+    const err = validateWithdrawalReason(withdrawalReason);
+    if (err) { setWithdrawalReasonError(err); return; }
+    setWithdrawalReasonError('');
     try {
       await initiateWithdrawal({ id, reason: withdrawalReason }).unwrap();
       setShowWithdrawalConfirm(false);
@@ -175,31 +216,45 @@ export default function MemberDetailPage() {
         {showEditForm && (
           <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200 space-y-3">
             <h3 className="text-sm font-semibold text-blue-800">Edit Profile</h3>
-            {editError && <p className="text-xs text-red-600">{editError}</p>}
-            {editSuccess && <p className="text-xs text-green-600">Profile updated successfully.</p>}
+            {Object.keys(editFieldErrors).length > 0 && (
+              <p className="text-xs text-red-600">Please fix the errors below.</p>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {[
-                { label: 'Email', key: 'email', type: 'email' },
-                { label: 'Phone Number', key: 'phoneNumber', type: 'text' },
-                { label: 'Address', key: 'address', type: 'text' },
-                { label: 'Employment Status', key: 'employmentStatus', type: 'text' },
-              ].map(({ label, key, type }) => (
+                { label: 'Email', key: 'email', type: 'email', placeholder: 'e.g. user@example.com' },
+                { label: 'Phone Number', key: 'phoneNumber', type: 'text', placeholder: 'e.g. +251912345678' },
+                { label: 'Address', key: 'address', type: 'text', placeholder: 'Street, City, Region' },
+                { label: 'Employment Status', key: 'employmentStatus', type: 'text', placeholder: 'e.g. PERMANENT' },
+              ].map(({ label, key, type, placeholder }) => (
                 <div key={key}>
                   <label className="block text-xs font-semibold text-gray-600 mb-1">{label}</label>
                   <input
                     type={type}
                     value={(editData as any)[key]}
-                    onChange={(e) => setEditData(d => ({ ...d, [key]: e.target.value }))}
-                    className="w-full px-3 py-1.5 text-sm border border-blue-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    placeholder={placeholder}
+                    onChange={(e) => {
+                      setEditData(d => ({ ...d, [key]: e.target.value }));
+                      setEditFieldErrors(prev => ({ ...prev, [key]: '' }));
+                    }}
+                    className={`w-full px-3 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-400 ${
+                      editFieldErrors[key] ? 'border-red-400 bg-red-50' : 'border-blue-300'
+                    }`}
                   />
+                  {editFieldErrors[key] && (
+                    <p className="text-xs text-red-500 mt-1">{editFieldErrors[key]}</p>
+                  )}
                 </div>
               ))}
             </div>
             <div className="flex gap-2">
               <button
                 onClick={async () => {
-                  setEditError('');
-                  setEditSuccess(false);
+                  const errs = validateEditForm();
+                  if (Object.keys(errs).length > 0) {
+                    setEditFieldErrors(errs);
+                    return;
+                  }
+                  setEditFieldErrors({});
                   try {
                     await updateMember({ id, data: {
                       email: editData.email || undefined,
@@ -207,10 +262,10 @@ export default function MemberDetailPage() {
                       address: editData.address || undefined,
                       employmentStatus: editData.employmentStatus || undefined,
                     }}).unwrap();
-                    setEditSuccess(true);
+                    toastSuccess('Profile updated');
                     setShowEditForm(false);
                   } catch (e: any) {
-                    setEditError(e?.data?.message ?? 'Update failed.');
+                    toastError(e?.data?.message ?? 'Update failed');
                   }
                 }}
                 disabled={updating}
@@ -218,7 +273,7 @@ export default function MemberDetailPage() {
               >
                 {updating ? 'Saving...' : 'Save Changes'}
               </button>
-              <button onClick={() => setShowEditForm(false)} className="px-4 py-1.5 border border-gray-300 text-gray-600 rounded-lg text-sm">
+              <button onClick={() => { setShowEditForm(false); setEditFieldErrors({}); }} className="px-4 py-1.5 border border-gray-300 text-gray-600 rounded-lg text-sm">
                 Cancel
               </button>
             </div>
@@ -229,22 +284,29 @@ export default function MemberDetailPage() {
         {showSuspendForm && (
           <div className="p-4 rounded-2xl bg-yellow-50 border border-yellow-200 space-y-3">
             <h3 className="text-sm font-semibold text-yellow-800">Suspend Member</h3>
-            <textarea
-              className="w-full px-3 py-2 rounded-lg border border-yellow-300 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-yellow-400/50"
-              rows={2}
-              placeholder="Reason for suspension..."
-              value={suspendReason}
-              onChange={(e) => setSuspendReason(e.target.value)}
-            />
+            <div>
+              <textarea
+                className={`w-full px-3 py-2 rounded-lg border text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 ${
+                  suspendReasonError ? 'border-red-400 bg-red-50' : 'border-yellow-300'
+                }`}
+                rows={2}
+                placeholder="Reason for suspension (min. 5 characters)..."
+                value={suspendReason}
+                onChange={(e) => { setSuspendReason(e.target.value); setSuspendReasonError(''); }}
+              />
+              {suspendReasonError && (
+                <p className="text-xs text-red-500 mt-1">{suspendReasonError}</p>
+              )}
+            </div>
             <div className="flex gap-2">
               <button
                 onClick={handleSuspend}
-                disabled={suspending || !suspendReason.trim()}
+                disabled={suspending}
                 className="px-4 py-1.5 bg-yellow-500 text-white rounded-lg text-sm font-medium hover:bg-yellow-600 disabled:opacity-50"
               >
                 {suspending ? 'Suspending...' : 'Confirm Suspend'}
               </button>
-              <button onClick={() => setShowSuspendForm(false)} className="px-4 py-1.5 border border-gray-300 text-gray-600 rounded-lg text-sm">
+              <button onClick={() => { setShowSuspendForm(false); setSuspendReasonError(''); }} className="px-4 py-1.5 border border-gray-300 text-gray-600 rounded-lg text-sm">
                 Cancel
               </button>
             </div>
@@ -316,23 +378,29 @@ export default function MemberDetailPage() {
               {deductionError && (
                 <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{deductionError}</p>
               )}
-              <div className="flex items-center gap-3">
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="New amount"
-                  value={deductionAmount}
-                  onChange={(e) => { setDeductionAmount(e.target.value); setDeductionError(''); }}
-                  className="w-40 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-400"
-                />
+              <div className="flex items-start gap-3">
+                <div className="flex flex-col gap-1">
+                  <CurrencyInput
+                    value={deductionAmount}
+                    onChange={(v) => { setDeductionAmount(v); setDeductionError(''); }}
+                    placeholder="New amount (ETB)"
+                    className={`w-44 px-3 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-400 ${
+                      deductionError ? 'border-red-400 bg-red-50' : 'border-gray-300'
+                    }`}
+                  />
+                  {deductionError && (
+                    <p className="text-xs text-red-500">{deductionError}</p>
+                  )}
+                </div>
                 <button
-                  disabled={!deductionAmount || increasing}
+                  disabled={increasing}
                   onClick={async () => {
+                    const err = validateDeduction(deductionAmount);
+                    if (err) { setDeductionError(err); return; }
                     setDeductionError('');
                     try {
-                      await increaseDeduction({ id, newDeductionAmount: Number(deductionAmount) }).unwrap();
-                      setDeductionAmount('');
+                      await increaseDeduction({ id, newDeductionAmount: deductionAmount! }).unwrap();
+                      setDeductionAmount(undefined);
                     } catch (e: any) {
                       setDeductionError(e?.data?.message ?? 'Failed to increase deduction');
                     }
@@ -342,12 +410,14 @@ export default function MemberDetailPage() {
                   {increasing ? 'Saving...' : 'Increase'}
                 </button>
                 <button
-                  disabled={!deductionAmount || decreasing}
+                  disabled={decreasing}
                   onClick={async () => {
+                    const err = validateDeduction(deductionAmount);
+                    if (err) { setDeductionError(err); return; }
                     setDeductionError('');
                     try {
-                      await decreaseDeduction({ id, newDeductionAmount: Number(deductionAmount) }).unwrap();
-                      setDeductionAmount('');
+                      await decreaseDeduction({ id, newDeductionAmount: deductionAmount! }).unwrap();
+                      setDeductionAmount(undefined);
                     } catch (e: any) {
                       setDeductionError(e?.data?.message ?? 'Failed to decrease deduction');
                     }
@@ -696,22 +766,29 @@ export default function MemberDetailPage() {
                 <p className="text-xs text-red-600">This action will begin the member withdrawal process and cannot be undone.</p>
                 {showWithdrawalConfirm ? (
                   <div className="space-y-3">
-                    <textarea
-                      className="w-full px-3 py-2 rounded-lg border border-red-300 text-sm text-gray-700 focus:outline-none"
-                      rows={2}
-                      placeholder="Reason for withdrawal..."
-                      value={withdrawalReason}
-                      onChange={(e) => setWithdrawalReason(e.target.value)}
-                    />
+                    <div>
+                      <textarea
+                        className={`w-full px-3 py-2 rounded-lg border text-sm text-gray-700 focus:outline-none ${
+                          withdrawalReasonError ? 'border-red-400 bg-red-50' : 'border-red-300'
+                        }`}
+                        rows={2}
+                        placeholder="Reason for withdrawal (min. 5 characters)..."
+                        value={withdrawalReason}
+                        onChange={(e) => { setWithdrawalReason(e.target.value); setWithdrawalReasonError(''); }}
+                      />
+                      {withdrawalReasonError && (
+                        <p className="text-xs text-red-500 mt-1">{withdrawalReasonError}</p>
+                      )}
+                    </div>
                     <div className="flex gap-2">
                       <button
                         onClick={handleWithdrawal}
-                        disabled={withdrawing || !withdrawalReason.trim()}
+                        disabled={withdrawing}
                         className="px-4 py-1.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50"
                       >
                         {withdrawing ? 'Processing...' : 'Confirm Withdrawal'}
                       </button>
-                      <button onClick={() => setShowWithdrawalConfirm(false)} className="px-4 py-1.5 border border-gray-300 text-gray-600 rounded-lg text-sm">
+                      <button onClick={() => { setShowWithdrawalConfirm(false); setWithdrawalReasonError(''); }} className="px-4 py-1.5 border border-gray-300 text-gray-600 rounded-lg text-sm">
                         Cancel
                       </button>
                     </div>

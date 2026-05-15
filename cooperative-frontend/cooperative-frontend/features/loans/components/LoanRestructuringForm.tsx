@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { CircularProgress } from '@mui/material';
 import { useInitiateRestructuringMutation } from '../loansApi';
+import { toastSuccess, toastError } from '@/components/common/Toast';
 
 const schema = z.object({
   restructuringReason: z.string().min(10, 'Please provide a detailed reason (min 10 characters)'),
@@ -19,7 +20,7 @@ const labelCls = 'block text-xs font-semibold text-gray-600 mb-1';
 const errCls = 'text-xs text-red-500 mt-1';
 
 export function LoanRestructuringForm({ loanId, onSuccess }: { loanId: string; onSuccess?: () => void }) {
-  const [initiateRestructuring, { isLoading, error, isSuccess }] = useInitiateRestructuringMutation();
+  const [initiateRestructuring, { isLoading }] = useInitiateRestructuringMutation();
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -33,23 +34,15 @@ export function LoanRestructuringForm({ loanId, onSuccess }: { loanId: string; o
         newInterestRate: data.newInterestRate / 100,
       }).unwrap();
       reset();
+      toastSuccess('Restructuring requested');
       onSuccess?.();
-    } catch {}
+    } catch (err: any) {
+      toastError(err?.data?.message ?? 'Failed to submit restructuring request');
+    }
   };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 max-w-lg">
-      {isSuccess && (
-        <div className="p-3 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm">
-          Restructuring request submitted successfully.
-        </div>
-      )}
-      {!!error && (
-        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
-          {String((error as any)?.data?.message ?? 'Failed to submit restructuring request')}
-        </div>
-      )}
-
       <div>
         <label className={labelCls}>Reason for Restructuring *</label>
         <textarea {...register('restructuringReason')} rows={3} className={inputCls} placeholder="Explain why restructuring is needed..." />

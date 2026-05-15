@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { CircularProgress } from '@mui/material';
 import { useSubmitAppealMutation } from '../loansApi';
+import { toastSuccess, toastError } from '@/components/common/Toast';
 
 const schema = z.object({
   appealReason: z.string().min(10, 'Please provide a detailed reason (min 10 characters)'),
@@ -19,7 +20,7 @@ interface Props {
 }
 
 export function LoanAppealForm({ applicationId, memberId, onSuccess }: Props) {
-  const [submitAppeal, { isLoading, error, isSuccess }] = useSubmitAppealMutation();
+  const [submitAppeal, { isLoading }] = useSubmitAppealMutation();
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -29,8 +30,11 @@ export function LoanAppealForm({ applicationId, memberId, onSuccess }: Props) {
     try {
       await submitAppeal({ applicationId, memberId, appealReason: data.appealReason }).unwrap();
       reset();
+      toastSuccess('Appeal submitted');
       onSuccess?.();
-    } catch {}
+    } catch (err: any) {
+      toastError(err?.data?.message ?? 'Failed to submit appeal');
+    }
   };
 
   const inputCls = 'w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all';
@@ -39,17 +43,6 @@ export function LoanAppealForm({ applicationId, memberId, onSuccess }: Props) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      {Boolean(isSuccess) && (
-        <div className="p-3 rounded-xl bg-green-50/80 border border-green-200 text-green-700 text-sm">
-          Appeal submitted successfully.
-        </div>
-      )}
-      {Boolean(error) && (
-        <div className="p-3 rounded-xl bg-red-50/80 border border-red-200 text-red-700 text-sm">
-          {String((error as any)?.data?.message ?? 'Failed to submit appeal')}
-        </div>
-      )}
-
       <div>
         <label className={labelCls}>Appeal Reason</label>
         <textarea

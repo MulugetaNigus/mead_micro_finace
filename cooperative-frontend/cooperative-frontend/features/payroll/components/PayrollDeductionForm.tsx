@@ -1,10 +1,12 @@
 'use client';
 
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { CircularProgress, Alert } from '@mui/material';
+import { CircularProgress } from '@mui/material';
 import { useProcessConfirmationMutation } from '../payrollApi';
+import { CurrencyInput } from '@/components/common/CurrencyInput';
+import { toastSuccess, toastError } from '@/components/common/Toast';
 
 const schema = z.object({
   memberId: z.string().min(1, 'Member ID is required'),
@@ -21,9 +23,9 @@ interface Props {
 }
 
 export function PayrollDeductionForm({ defaultMemberId, onSuccess }: Props) {
-  const [processConfirmation, { isLoading, isSuccess, error }] = useProcessConfirmationMutation();
+  const [processConfirmation, { isLoading }] = useProcessConfirmationMutation();
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { memberId: defaultMemberId ?? '', deductionMonth: '', amount: 0 },
   });
@@ -32,12 +34,12 @@ export function PayrollDeductionForm({ defaultMemberId, onSuccess }: Props) {
     try {
       await processConfirmation(data).unwrap();
       reset({ memberId: defaultMemberId ?? '', deductionMonth: '', amount: 0 });
+      toastSuccess('Deduction confirmed');
       onSuccess?.();
-    } catch {}
+    } catch (err: any) {
+      toastError(err?.data?.message ?? 'Failed to process confirmation');
+    }
   };
-
-  const errMsg = error && typeof error === 'object' && 'data' in error
-    ? (error as any).data?.message : 'Failed to process confirmation';
 
   const inputCls = 'w-full px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400';
   const labelCls = 'block text-xs font-semibold text-gray-600 mb-1';
@@ -45,9 +47,6 @@ export function PayrollDeductionForm({ defaultMemberId, onSuccess }: Props) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      {isSuccess && <Alert severity="success" className="rounded-xl">Deduction confirmed successfully.</Alert>}
-      {Boolean(error) && <Alert severity="error" className="rounded-xl">{errMsg}</Alert>}
-
       <div>
         <label className={labelCls}>Member ID</label>
         <input {...register('memberId')} className={inputCls} readOnly={!!defaultMemberId} />
@@ -62,9 +61,18 @@ export function PayrollDeductionForm({ defaultMemberId, onSuccess }: Props) {
 
       <div>
         <label className={labelCls}>Confirmed Amount (ETB)</label>
-        <input type="number" step="0.01"
-          {...register('amount', { valueAsNumber: true })}
-          className={inputCls} placeholder="0.00" />
+        <Controller
+          name="amount"
+          control={control}
+          render={({ field }) => (
+            <CurrencyInput
+              value={field.value}
+              onChange={(v) => field.onChange(v ?? 0)}
+              className={inputCls}
+              placeholder="0"
+            />
+          )}
+        />
         {errors.amount && <p className={errCls}>{errors.amount.message}</p>}
       </div>
 
